@@ -1,9 +1,9 @@
--- bu5àlddscrípts - DeltaX Enhanced with Real Teleportation & Pathfinding
+-- bu5àlddscrípts - Steal A Brainrot with Movable T-Button UI
 -- Anti-Cheat Protected Position Saver & Teleporter
 
 -- Show loading message immediately
 BeginTextCommandThefeedPost("STRING")
-AddTextComponentSubstringPlayerName("🔄 bu5àlddscrípts - Loading Advanced Teleport System...")
+AddTextComponentSubstringPlayerName("🔄 bu5àlddscrípts - Loading...")
 EndTextCommandThefeedPostTicker(false, true)
 
 Citizen.Wait(1000)
@@ -11,23 +11,27 @@ Citizen.Wait(1000)
 -- Initialize script variables
 local Positions = {}
 local currentSlot = 1
-local uiVisible = true
+local uiVisible = false
+local mainUIvisible = false
 local lastTouchTime = 0
 local toggleCooldown = 500
 local antiCheatEnabled = false
-local pathfindingEnabled = false
 local screenWidth, screenHeight = GetScreenResolution()
-local teleportMode = "instant" -- "instant", "gradual", "pathfind"
+
+-- Movable T-button settings
+local tButtonX = screenWidth * 0.1  -- Default position (10% from left)
+local tButtonY = screenHeight * 0.2 -- Default position (20% from top)
+local tButtonSize = 40
+local isDragging = false
 
 -- Show script loaded notification
 BeginTextCommandThefeedPost("STRING")
-AddTextComponentSubstringPlayerName("✅ bu5àlddscrípts loaded with Real Teleportation!")
+AddTextComponentSubstringPlayerName("✅ bu5àlddscrípts loaded! Tap T-button to open UI")
 EndTextCommandThefeedPostTicker(false, true)
 
--- Anti-Cheat Bypass with enhanced protection
+-- Anti-Cheat Bypass
 function EnableAntiCheatBypass()
     local success, result = pcall(function()
-        -- Multiple anti-cheat bypass techniques
         for _, v in pairs(getgc(true)) do
             if type(v) == "table" then
                 local fn = rawget(v, "observeTag")
@@ -38,21 +42,10 @@ function EnableAntiCheatBypass()
                             disconnect = function() end
                         }
                     end)
-                end
-                
-                -- Additional anti-cheat hooks
-                local checkFn = rawget(v, "checkPlayer")
-                if type(checkFn) == "function" then
-                    hookfunction(checkFn, function() return true end)
+                    break
                 end
             end
         end
-        
-        -- Disable common anti-cheat checks
-        if _G.AC_Check then
-            _G.AC_Check = function() return true end
-        end
-        
         return true
     end)
     
@@ -60,118 +53,7 @@ function EnableAntiCheatBypass()
     return success
 end
 
--- Enhanced teleportation system with multiple modes
-function RealTeleportToPosition(slot)
-    if not Positions[slot] then
-        ShowNotification("No position saved in slot " .. slot)
-        return false
-    end
-    
-    if not antiCheatEnabled then
-        ShowNotification("Enable Anti-Cheat First!")
-        return false
-    end
-    
-    local pos = Positions[slot]
-    local ped = PlayerPedId()
-    
-    -- Preload collision at destination
-    RequestCollisionAtCoord(pos.x, pos.y, pos.z)
-    NewLoadSceneStart(pos.x, pos.y, pos.z, pos.x, pos.y, pos.z, 50.0, 0)
-    
-    -- Choose teleport method based on mode
-    if teleportMode == "instant" then
-        -- Instant teleport (most risky but fastest)
-        SetEntityCoordsNoOffset(ped, pos.x, pos.y, pos.z, false, false, false)
-        SetEntityHeading(ped, pos.heading)
-        
-    elseif teleportMode == "gradual" then
-        -- Gradual teleport (safer)
-        local startPos = GetEntityCoords(ped)
-        local steps = 8
-        
-        for i = 1, steps do
-            local progress = i / steps
-            local currentX = startPos.x + (pos.x - startPos.x) * progress
-            local currentY = startPos.y + (pos.y - startPos.y) * progress
-            local currentZ = startPos.z + (pos.z - startPos.z) * progress
-            
-            SetEntityCoordsNoOffset(ped, currentX, currentY, currentZ, false, false, false)
-            Citizen.Wait(30)
-        end
-        
-        SetEntityHeading(ped, pos.heading)
-        
-    elseif teleportMode == "pathfind" and pathfindingEnabled then
-        -- Pathfinding-based teleport (safest)
-        StartPathfindTeleport(ped, pos)
-    end
-    
-    -- Ensure proper collision loading
-    local timeout = 0
-    while not HasCollisionLoadedAroundEntity(ped) and timeout < 50 do
-        Citizen.Wait(10)
-        timeout = timeout + 1
-    end
-    
-    ShowNotification(string.format("Teleported to slot %d (%s)", slot, teleportMode))
-    return true
-end
-
--- Basic pathfinding implementation for teleportation
-function StartPathfindTeleport(ped, targetPos)
-    local currentPos = GetEntityCoords(ped)
-    local maxAttempts = 3
-    
-    for attempt = 1, maxAttempts do
-        -- Calculate intermediate points for pathfinding
-        local intermediatePoints = CalculatePathPoints(currentPos, targetPos)
-        
-        if intermediatePoints and #intermediatePoints > 0 then
-            -- Follow the calculated path
-            for i, point in ipairs(intermediatePoints) do
-                SetEntityCoordsNoOffset(ped, point.x, point.y, point.z, false, false, false)
-                Citizen.Wait(15) -- Short delay between points
-            end
-            break
-        else
-            -- Fallback to direct teleport if pathfinding fails
-            if attempt == maxAttempts then
-                SetEntityCoordsNoOffset(ped, targetPos.x, targetPos.y, targetPos.z, false, false, false)
-            end
-            Citizen.Wait(100)
-        end
-    end
-    
-    SetEntityHeading(ped, targetPos.heading or GetEntityHeading(ped))
-end
-
--- Calculate path points for teleportation (simplified pathfinding)
-function CalculatePathPoints(startPos, endPos)
-    local points = {}
-    local steps = 10
-    
-    -- Simple linear interpolation (can be enhanced with proper pathfinding)
-    for i = 1, steps do
-        local progress = i / steps
-        local point = {
-            x = startPos.x + (endPos.x - startPos.x) * progress,
-            y = startPos.y + (endPos.y - startPos.y) * progress,
-            z = startPos.z + (endPos.z - startPos.z) * progress
-        }
-        
-        -- Add slight height variation to simulate pathfinding
-        if i < steps then
-            point.z = point.z + math.sin(progress * math.pi) * 2.0
-        end
-        
-        table.insert(points, point)
-    end
-    
-    return points
-end
-
--- Save position with enhanced safety
+-- Save position with safety checks
 function SavePosition(slot)
     if not antiCheatEnabled then
         ShowNotification("Enable Anti-Cheat First!")
@@ -194,6 +76,44 @@ function SavePosition(slot)
     return true
 end
 
+-- Teleport with safety checks
+function TeleportToPosition(slot)
+    if not Positions[slot] then
+        ShowNotification("No position saved in slot " .. slot)
+        return false
+    end
+    
+    if not antiCheatEnabled then
+        ShowNotification("Enable Anti-Cheat First!")
+        return false
+    end
+    
+    local pos = Positions[slot]
+    local ped = PlayerPedId()
+    
+    -- Preload collision
+    RequestCollisionAtCoord(pos.x, pos.y, pos.z)
+    
+    -- Gradual teleportation to avoid detection
+    local startPos = GetEntityCoords(ped)
+    local steps = 5
+    
+    for i = 1, steps do
+        local progress = i / steps
+        local currentX = startPos.x + (pos.x - startPos.x) * progress
+        local currentY = startPos.y + (pos.y - startPos.y) * progress
+        local currentZ = startPos.z + (pos.z - startPos.z) * progress
+        
+        SetEntityCoordsNoOffset(ped, currentX, currentY, currentZ, false, false, false)
+        Citizen.Wait(50)
+    end
+    
+    SetEntityHeading(ped, pos.heading)
+    
+    ShowNotification(string.format("Teleported to slot %d", slot))
+    return true
+end
+
 -- Check if touch is within a rectangle
 function IsTouchInBounds(touchX, touchY, rectX, rectY, width, height)
     return touchX >= rectX - width/2 and 
@@ -202,12 +122,32 @@ function IsTouchInBounds(touchX, touchY, rectX, rectY, width, height)
            touchY <= rectY + height/2
 end
 
--- Create enhanced mobile UI with teleport mode selection
-function DrawEnhancedUI()
-    if not uiVisible then return end
+-- Draw movable T-button
+function DrawTButton()
+    -- Draw T-button background
+    DrawRect(tButtonX, tButtonY, tButtonSize, tButtonSize, 50, 150, 50, 200)
+    
+    -- Draw T symbol
+    SetTextFont(4)
+    SetTextScale(0.8, 0.8)
+    SetTextColour(255, 255, 255, 255)
+    SetTextCentre(true)
+    BeginTextCommandDisplayText("STRING")
+    AddTextComponentSubstringPlayerName("T")
+    EndTextCommandDisplayText(tButtonX, tButtonY - 12)
+    
+    -- Draw small indicator when UI is open
+    if mainUIvisible then
+        DrawRect(tButtonX, tButtonY - tButtonSize/2 - 5, 10, 5, 0, 255, 0, 200)
+    end
+end
+
+-- Draw main UI
+function DrawMainUI()
+    if not mainUIvisible then return end
     
     local uiWidth = screenWidth * 0.8
-    local uiHeight = screenHeight * 0.3
+    local uiHeight = screenHeight * 0.25
     local uiX = (screenWidth - uiWidth) / 2
     local uiY = screenHeight - uiHeight - 20
     
@@ -220,23 +160,23 @@ function DrawEnhancedUI()
     SetTextColour(255, 255, 255, 255)
     SetTextCentre(true)
     BeginTextCommandDisplayText("STRING")
-    AddTextComponentSubstringPlayerName("bu5àlddscrípts - Real Teleport")
+    AddTextComponentSubstringPlayerName("bu5àlddscrípts - Slot " .. currentSlot)
     EndTextCommandDisplayText(uiX + uiWidth/2, uiY + 10)
     
-    -- Status info
+    -- Anti-cheat status
     SetTextFont(4)
     SetTextScale(0.3, 0.3)
-    SetTextColour(255, 255, 255, 200)
+    SetTextColour(antiCheatEnabled and 0 or 255, antiCheatEnabled and 255 or 0, 0, 255)
     SetTextCentre(true)
     BeginTextCommandDisplayText("STRING")
-    AddTextComponentSubstringPlayerName("Mode: " .. teleportMode:upper() .. " | Anti-Cheat: " .. (antiCheatEnabled and "ON" or "OFF"))
+    AddTextComponentSubstringPlayerName("Anti-Cheat: " .. (antiCheatEnabled and "ON" or "OFF"))
     EndTextCommandDisplayText(uiX + uiWidth/2, uiY + 30)
     
     -- Slot buttons
     local buttonWidth = uiWidth / 5
     for i = 1, 5 do
         local btnX = uiX + (i-1) * buttonWidth + buttonWidth/2
-        local btnY = uiY + uiHeight/3
+        local btnY = uiY + uiHeight/2
         
         -- Button background
         if currentSlot == i then
@@ -270,12 +210,10 @@ function DrawEnhancedUI()
     local saveBtnX = uiX + uiWidth * 0.2
     local teleportBtnX = uiX + uiWidth * 0.8
     local antiCheatBtnX = uiX + uiWidth * 0.5
-    local modeBtnX = uiX + uiWidth * 0.35
-    local pathfindBtnX = uiX + uiWidth * 0.65
-    local btnY = uiY + uiHeight * 0.7
+    local btnY = uiY + uiHeight * 0.8
     
     -- Save button
-    DrawRect(saveBtnX, btnY, uiWidth * 0.25, 30, 0, 100, 200, 200)
+    DrawRect(saveBtnX, btnY, uiWidth * 0.3, 30, 0, 100, 200, 200)
     SetTextFont(4)
     SetTextScale(0.4, 0.4)
     SetTextColour(255, 255, 255, 255)
@@ -285,7 +223,7 @@ function DrawEnhancedUI()
     EndTextCommandDisplayText(saveBtnX, btnY - 8)
     
     -- Teleport button
-    DrawRect(teleportBtnX, btnY, uiWidth * 0.25, 30, 200, 100, 0, 200)
+    DrawRect(teleportBtnX, btnY, uiWidth * 0.3, 30, 200, 100, 0, 200)
     SetTextFont(4)
     SetTextScale(0.4, 0.4)
     SetTextColour(255, 255, 255, 255)
@@ -294,35 +232,15 @@ function DrawEnhancedUI()
     AddTextComponentSubstringPlayerName("TELEPORT")
     EndTextCommandDisplayText(teleportBtnX, btnY - 8)
     
-    -- Anti-Cheat toggle button
-    DrawRect(antiCheatBtnX, btnY, uiWidth * 0.2, 30, antiCheatEnabled and 0 or 150, antiCheatEnabled and 150 or 0, 0, 200)
+    -- Anti-cheat toggle button
+    DrawRect(antiCheatBtnX, btnY, uiWidth * 0.3, 30, antiCheatEnabled and 0 or 150, antiCheatEnabled and 150 or 0, 0, 200)
     SetTextFont(4)
-    SetTextScale(0.3, 0.3)
+    SetTextScale(0.4, 0.4)
     SetTextColour(255, 255, 255, 255)
     SetTextCentre(true)
     BeginTextCommandDisplayText("STRING")
-    AddTextComponentSubstringPlayerName("ANTI-CHEAT")
+    AddTextComponentSubstringPlayerName(antiCheatEnabled and "ANTI-CHEAT ON" or "ANTI-CHEAT OFF")
     EndTextCommandDisplayText(antiCheatBtnX, btnY - 8)
-    
-    -- Teleport mode button
-    DrawRect(modeBtnX, btnY, uiWidth * 0.2, 30, 150, 0, 150, 200)
-    SetTextFont(4)
-    SetTextScale(0.3, 0.3)
-    SetTextColour(255, 255, 255, 255)
-    SetTextCentre(true)
-    BeginTextCommandDisplayText("STRING")
-    AddTextComponentSubstringPlayerName("MODE: " .. teleportMode:sub(1, 1):upper())
-    EndTextCommandDisplayText(modeBtnX, btnY - 8)
-    
-    -- Pathfind toggle button
-    DrawRect(pathfindBtnX, btnY, uiWidth * 0.2, 30, pathfindingEnabled and 0 or 150, 150, pathfindingEnabled and 150 : 0, 200)
-    SetTextFont(4)
-    SetTextScale(0.3, 0.3)
-    SetTextColour(255, 255, 255, 255)
-    SetTextCentre(true)
-    BeginTextCommandDisplayText("STRING")
-    AddTextComponentSubstringPlayerName("PATHFIND")
-    EndTextCommandDisplayText(pathfindBtnX, btnY - 8)
 end
 
 -- Handle touch input
@@ -333,27 +251,47 @@ function HandleTouchInput()
     touchX = touchX * screenWidth
     touchY = touchY * screenHeight
     
-    local uiWidth = screenWidth * 0.8
-    local uiHeight = screenHeight * 0.3
-    local uiX = (screenWidth - uiWidth) / 2
-    local uiY = screenHeight - uiHeight - 20
-    
-    -- Toggle UI with center screen tap
-    if IsTouchInBounds(touchX, touchY, screenWidth/2, screenHeight/2, 100, 100) then
-        if GetGameTimer() - lastTouchTime > toggleCooldown then
-            uiVisible = not uiVisible
-            lastTouchTime = GetGameTimer()
+    -- Check T-button for drag/click
+    if IsTouchInBounds(touchX, touchY, tButtonX, tButtonY, tButtonSize, tButtonSize) then
+        if isDragging then
+            isDragging = false
+        else
+            -- Toggle main UI
+            mainUIvisible = not mainUIvisible
+            ShowNotification(mainUIvisible and "UI Opened" or "UI Closed")
         end
         return
     end
     
-    if not uiVisible then return end
+    -- Start dragging if touching T-button area
+    if IsTouchInBounds(touchX, touchY, tButtonX, tButtonY, tButtonSize * 2, tButtonSize * 2) then
+        isDragging = true
+        return
+    end
+    
+    -- Handle dragging
+    if isDragging then
+        tButtonX = touchX
+        tButtonY = touchY
+        -- Constrain to screen boundaries
+        tButtonX = math.max(tButtonSize/2, math.min(screenWidth - tButtonSize/2, tButtonX))
+        tButtonY = math.max(tButtonSize/2, math.min(screenHeight - tButtonSize/2, tButtonY))
+        return
+    end
+    
+    if not mainUIvisible then return end
+    
+    -- Handle main UI interactions
+    local uiWidth = screenWidth * 0.8
+    local uiHeight = screenHeight * 0.25
+    local uiX = (screenWidth - uiWidth) / 2
+    local uiY = screenHeight - uiHeight - 20
     
     -- Check slot buttons
     local buttonWidth = uiWidth / 5
     for i = 1, 5 do
         local btnX = uiX + (i-1) * buttonWidth + buttonWidth/2
-        local btnY = uiY + uiHeight/3
+        local btnY = uiY + uiHeight/2
         
         if IsTouchInBounds(touchX, touchY, btnX, btnY, buttonWidth - 10, 40) then
             currentSlot = i
@@ -365,24 +303,22 @@ function HandleTouchInput()
     local saveBtnX = uiX + uiWidth * 0.2
     local teleportBtnX = uiX + uiWidth * 0.8
     local antiCheatBtnX = uiX + uiWidth * 0.5
-    local modeBtnX = uiX + uiWidth * 0.35
-    local pathfindBtnX = uiX + uiWidth * 0.65
-    local btnY = uiY + uiHeight * 0.7
+    local btnY = uiY + uiHeight * 0.8
     
     -- Save button
-    if IsTouchInBounds(touchX, touchY, saveBtnX, btnY, uiWidth * 0.25, 30) then
+    if IsTouchInBounds(touchX, touchY, saveBtnX, btnY, uiWidth * 0.3, 30) then
         SavePosition(currentSlot)
         return
     end
     
     -- Teleport button
-    if IsTouchInBounds(touchX, touchY, teleportBtnX, btnY, uiWidth * 0.25, 30) then
-        RealTeleportToPosition(currentSlot)
+    if IsTouchInBounds(touchX, touchY, teleportBtnX, btnY, uiWidth * 0.3, 30) then
+        TeleportToPosition(currentSlot)
         return
     end
     
-    -- Anti-Cheat button
-    if IsTouchInBounds(touchX, touchY, antiCheatBtnX, btnY, uiWidth * 0.2, 30) then
+    -- Anti-cheat button
+    if IsTouchInBounds(touchX, touchY, antiCheatBtnX, btnY, uiWidth * 0.3, 30) then
         if antiCheatEnabled then
             antiCheatEnabled = false
             ShowNotification("Anti-Cheat Disabled")
@@ -395,27 +331,6 @@ function HandleTouchInput()
         end
         return
     end
-    
-    -- Mode button
-    if IsTouchInBounds(touchX, touchY, modeBtnX, btnY, uiWidth * 0.2, 30) then
-        -- Cycle through teleport modes
-        if teleportMode == "instant" then
-            teleportMode = "gradual"
-        elseif teleportMode == "gradual" then
-            teleportMode = "pathfind"
-        else
-            teleportMode = "instant"
-        end
-        ShowNotification("Teleport Mode: " .. teleportMode:upper())
-        return
-    end
-    
-    -- Pathfind button
-    if IsTouchInBounds(touchX, touchY, pathfindBtnX, btnY, uiWidth * 0.2, 30) then
-        pathfindingEnabled = not pathfindingEnabled
-        ShowNotification("Pathfinding " .. (pathfindingEnabled and "Enabled" : "Disabled"))
-        return
-    end
 end
 
 -- Main loop
@@ -423,14 +338,26 @@ Citizen.CreateThread(function()
     while true do
         Citizen.Wait(0)
         HandleTouchInput()
-        DrawEnhancedUI()
+        DrawTButton()
+        DrawMainUI()
     end
 end)
 
 -- Show usage instructions
 Citizen.CreateThread(function()
     Citizen.Wait(3000)
-    ShowNotification("Tap center screen to toggle UI")
+    ShowNotification("Drag the T-button to move it")
+    ShowNotification("Tap T-button to open/close UI")
     ShowNotification("Enable Anti-Cheat for safety first!")
-    ShowNotification("Switch modes for different teleport types")
+end)
+
+-- Cleanup on script restart
+Citizen.CreateThread(function()
+    while true do
+        Citizen.Wait(1000)
+        -- Reset dragging if touch is released
+        if isDragging and not IsControlPressed(0, 237) then
+            isDragging = false
+        end
+    end
 end)
